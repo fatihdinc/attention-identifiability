@@ -12,9 +12,10 @@ All executable entry points are in `scripts/`. Library code contains no experime
 | `train_low_rank.py` | Trains functional rank-factorized replacements against frozen teacher logits. |
 | `summarize_low_rank.py` | Aggregates the 5k/10k benchmark and joins it to the analytic results. |
 | `plot_main_results.py` | Produces the ten-task full-range and zoomed paper figures. |
+| `run_support_projected_svd.py` | Builds and evaluates the post-hoc two-sided input-support SVD from cached Grams and teachers. |
+| `plot_support_projected_results.py` | Adds support-projected SVD alongside original SVD, omits the spectral-power overlay, and preserves the locked parent plotter. |
 | `run_task_transfer_controls.py` | Implements one-seed control computation, final aggregation, and control plots. |
 | `run_task_transfer_controls_all.py` | Runs the transfer controls over 20 seeds on four workers. |
 | `audit_bundle.py` | Checks final completeness, ranks, row counts, seed counts, invariants, and optional hashes. |
 
-The core model and online generators are in `src/identifiability_llm/ten_task_attention.py`. Effective-score algebra and reconstruction live in `ten_task_effective_score.py`; learned functional replacement utilities live in `ten_task_distillation.py`.
-
+The core model and online generators are in `src/identifiability_llm/ten_task_attention.py`. Effective-score algebra and the locked parent reconstructions live in `ten_task_effective_score.py`; the post-hoc support-SVD extension lives in `support_projected_svd.py`; learned functional replacement utilities live in `ten_task_distillation.py`.

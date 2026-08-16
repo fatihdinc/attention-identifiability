@@ -4,7 +4,7 @@
 
 A weight matrix can be low rank without revealing which of its directions actually support a model's behavior. Truncated singular-value decomposition (SVD), for example, preserves directions with high parameter-space energy but does not use the input distribution and is not task specific. Conversely, a low-rank matrix trained to reproduce a network's outputs is function aware, but it does not explain whether the relevant directions can be read directly from the network's activity.
 
-This repository tests a concrete bridge between these views. We train a controlled, single-layer attention model jointly on ten tasks and ask whether task-conditioned activation Gram matrices identify low-dimensional subspaces of its effective attention-score matrix that preserve held-out behavior. We compare those activity-selected subspaces with direct SVD and with rank-constrained matrices optimized to reproduce the frozen model's logits.
+This repository tests a concrete bridge between these views. We train a controlled, single-layer attention model jointly on ten tasks and ask whether task-conditioned activation Gram matrices identify low-dimensional subspaces of its effective attention-score matrix that preserve held-out behavior. We compare those activity-selected subspaces with both ordinary SVD of the full effective matrix and SVD restricted to the task's observed query/key input supports, as well as rank-constrained matrices optimized to reproduce the frozen model's logits.
 
 ## Table of contents
 
@@ -30,6 +30,8 @@ This repository tests a concrete bridge between these views. We train a controll
 Each example contains a query and 64 context records. The target is one of 32 class labels. Before mixing, every context record is a 128-dimensional vector containing two independent 32-dimensional keys (`A` and `B`), a 32-way one-hot label, an 8-way one-hot category, a scalar priority, a constant coordinate, and reserved coordinates. The query occupies the same 128-dimensional space, but its label coordinates are always zero; it instead contains the task-relevant key/category information and a 10-way task one-hot.
 
 For every model seed, separate fixed orthogonal matrices mix the latent query and context coordinates. The model therefore sees dense 128-dimensional vectors rather than the hand-designed coordinate blocks. The query and context transforms are distinct and full rank.
+
+The orthogonal mixing makes individual observed coordinates dense, but it does not eliminate unused linear combinations. Across the calibrated task distributions, the query-input support has rank 8, 33, 40, or 65 depending on the task, while the context/key-input support has rank 104. This distinction motivates the support-projected SVD baseline below: a raw SVD of the full 128-by-128 matrix can spend rank on directions that no query or context ever occupies.
 
 | # | Task | Required operation |
 |---:|---|---|
@@ -113,11 +115,23 @@ The analytic rank grid is dense from $K=0$ through $50$, followed by $K\in\{60,7
 
 ### Baselines and evaluation
 
-We compare the four Gram methods with three references:
+We compare the four Gram methods with four references. The first two are complementary SVD baselines:
 
-1. **SVD of $M$.** If $M=U\Sigma V^\top$, the rank $K$ reconstruction is $U_{:K}\Sigma_{:K}V_{:K}^\top$. This is the optimal rank $K$ approximation to $M$ in Frobenius norm, but it is task agnostic.
-2. **Cumulative SVD power.** The black curve reports $C_M(K)=\sum_{i\leq K}\sigma_i^2/\sum_i\sigma_i^2$. It is a spectral diagnostic, not a reconstruction method or a behavioral metric.
-3. **Trained functional low rank.** For each seed, task, and trainable rank, a factorized matrix $A_KB_K$ replaces $M$ while the teacher's value, output, and readout paths remain frozen. Its factors are initialized from the rank $K$ SVD of $M$ and optimized along one 10,000-step trajectory to match the frozen teacher's class logits on calibration inputs; ground-truth labels are not used. The 5k and 10k results select the checkpoint with the lowest normalized teacher-logit MSE observed up to the corresponding horizon, including step zero. Rank 0 and rank 128 are boundary controls rather than optimized conditions. This is a trained functional reference, not a certificate of the globally optimal rank $K$ solution.
+1. **Original SVD of $M$.** If $M=U\Sigma V^\top$, its rank $K$ reconstruction is $\widehat M_K=U_{:K}\Sigma_{:K}V_{:K}^\top$. This is the optimal rank $K$ Frobenius approximation to the full trained matrix. It is task agnostic: the singular directions are ranked using all of the 128-dimensional matrix, including directions that the task's queries or contexts never occupy.
+2. **Support-projected SVD (reduced SVD).** Let $U_q$ and $U_x$ contain every eigenvector of the task's input Grams $G_q$ and $G_x$ whose eigenvalue exceeds $10^{-10}$ times that Gram's largest eigenvalue. We first reduce $M$ to the compact supported operator $B=U_q^\top M U_x$. If $B=\widetilde U\widetilde\Sigma\widetilde V^\top$, the rank $K$ reconstruction lifted back to the original coordinates is $\widehat M_K=U_q\widetilde U_{:K}\widetilde\Sigma_{:K}\widetilde V_{:K}^\top U_x^\top$. Equivalently, its full supported target is $M_{\mathrm{supp}}=P_qMP_x$, with $P_q=U_qU_q^\top$ and $P_x=U_xU_x^\top$. This is the optimal rank $K$ Frobenius approximation to $M_{\mathrm{supp}}$, not to raw $M$.
+3. **Cumulative projected-SVD power.** The generated tables record the cumulative squared-singular-value fraction of $M_{\mathrm{supp}}$. It reaches one when $K$ reaches the supported operator's rank. This diagnostic is retained in the data but omitted from the main figures so that the plotted curves all use the same behavioral-accuracy axis.
+4. **Trained functional low rank.** For each seed, task, and trainable rank, a factorized matrix $A_KB_K$ replaces $M$ while the teacher's value, output, and readout paths remain frozen. Its factors are initialized from the rank $K$ SVD of $M$ and optimized along one 10,000-step trajectory to match the frozen teacher's class logits on calibration inputs; ground-truth labels are not used. The 5k and 10k results select the checkpoint with the lowest normalized teacher-logit MSE observed up to the corresponding horizon, including step zero. Rank 0 and rank 128 are boundary controls rather than optimized conditions. This is a trained functional reference, not a certificate of the globally optimal rank $K$ solution.
+
+| Property | Original SVD of $M$ | Support-projected SVD |
+|---|---|---|
+| Matrix decomposed | Full $128\times128$ matrix $M$ | Compact task-specific operator $U_q^\top M U_x$ |
+| Uses task-conditioned calibration activity | No | Yes, to estimate the complete non-null query and context supports |
+| Rank $K$ optimality | Frobenius error to raw $M$ | Frobenius error to $P_qMP_x$ |
+| Full retained rank | Recovers $M$ at $K=128$ | Recovers $P_qMP_x$ once $K$ reaches the supported operator rank |
+
+The support-projected reconstruction need not equal raw $M$ as a matrix. It nevertheless produces the same scores $q^\top Mx$ whenever $q$ and $x$ lie in the estimated input supports. Thus this baseline removes exactly inactive directions before asking how many singular components the task-relevant operator needs; it is not a trained or accuracy-optimized reconstruction. The support cutoff is invariant across relative tolerances from $10^{-8}$ to $10^{-12}$ in these data.
+
+The support-projected SVD was added as a post-hoc fairness baseline after noticing the exact null input directions. The final figures show it alongside the original locked SVD of $M$. The support bases use calibration inputs only; held-out test inputs and labels are never used to construct them.
 
 Every reconstructed matrix is inserted into the exact direct $M$ forward pass while $W_V$, $W_O$, and the readout remain fixed. The primary outcome is classification accuracy on 4,096 untouched test examples per task and seed. Secondary recorded metrics include accuracy retention, attention KL divergence, centered score MSE, relative matrix error, and numerical rank. See [METHODS.md](docs/METHODS.md) for the full derivation.
 
@@ -125,24 +139,29 @@ Every reconstructed matrix is inserted into the exact direct $M$ forward pass wh
 
 ### Primary reconstruction experiment
 
-![Ten-task effective-score reconstruction across the full rank range](figures/main/full_range_20seeds.png)
+![Full-range ten-task reconstruction benchmark with original and support-projected SVD](figures/main/full_range_20seeds.png)
 
-**Figure 1 — Primary reconstruction benchmark.** Each panel is one task. Colored curves show mean held-out accuracy across 20 independently trained models; shaded regions are $\pm1$ standard deviation across seeds. The gray dashed line is the corresponding full-model accuracy. The black curve uses the right axis and shows cumulative SVD power. Gram reconstructions and SVD of $M$ are evaluated at 59 ranks; the trained functional references are reported on the 12-rank grid shown by their markers. ([PDF](figures/main/full_range_20seeds.pdf) · [ranks 0–50 zoom](figures/main/zoom_K0_50_20seeds.png))
+**Figure 1a — Full-range reconstruction benchmark.** Each panel is one task. Colored curves show mean held-out accuracy across 20 independently trained models; shaded regions are $\pm1$ standard deviation across seeds. The gray dashed line is the corresponding full-model accuracy. Original SVD of $M$ is the dark dash-dot curve with hollow markers; support-projected SVD is the solid blue curve with filled markers. The four Gram reconstructions and both SVD baselines are evaluated at 59 ranks; the trained functional references are reported on the 12-rank grid shown by their markers. Every plotted curve uses the behavioral-accuracy axis. ([PDF](figures/main/full_range_20seeds.pdf))
 
-The central observation is task dependence: directions chosen from task-conditioned activity can preserve behavior at ranks substantially below the ambient dimension, and their functional efficiency can differ sharply from the ordering supplied by the global SVD of $M$. The comparison with the trained low-rank curves shows how closely an analytic Gram construction approaches a matrix explicitly optimized for the same frozen teacher behavior. No single Gram construction dominates every task, so the figure should be read task by task rather than as a universal ranking of methods.
+![Rank 0 to 50 zoom of the ten-task reconstruction benchmark with both SVD baselines](figures/main/zoom_K0_50_20seeds.png)
+
+**Figure 1b — Low-rank zoom.** The same estimates, uncertainty bands, and visual encodings as Figure 1a, restricted to $K=0$ through $50$, where the behavioral transitions are easiest to compare. No values are recomputed for this view. ([PDF](figures/main/zoom_K0_50_20seeds.pdf))
+
+The correction changes the comparison materially. Once both exact input null spaces are removed, support-projected SVD is the strongest analytic reference on average. Query-output Gram nevertheless tracks it closely: it ties the support-projected SVD's $K_{95}$ on seven tasks and trails by only one rank on partial A and category-filtered lookup and by two ranks on category majority vote. No Gram method beats the support-projected SVD at $K_{95}$. Thus the earlier gap from SVD of raw $M$ was substantially explained by unsupported matrix directions; the remaining result is that a one-sided, task-conditioned query-output Gram nearly matches the two-sided support-aware SVD and the trained functional reference.
 
 Define $K_{95}$ for each task and method as the smallest reported rank at which the 20-seed mean accuracy reaches 95% of that task's mean full-model accuracy. Averaging those ten task-level thresholds gives:
 
 | Method | Mean task-level $K_{95}$ |
 |---|---:|
+| Support-projected SVD | 18.5 |
 | Query-output Gram | 18.9 |
 | Trained functional low rank (5k or 10k) | 20.2 |
 | Query-input Gram | 20.3 |
-| SVD of $M$ | 37.9 |
+| Original SVD of $M$ | 37.9 |
 | Key-output Gram | 37.9 |
 | Key-input Gram | 57.7 |
 
-Both query-Gram methods reached $K_{95}$ below SVD of $M$ on seven of ten tasks, tied it on the two priority tasks, and required slightly higher rank on category majority vote. Exact comparison with the trained baseline is approximate because its reported rank grid is substantially coarser.
+Exact comparison with the trained baseline is approximate because its reported rank grid is substantially coarser.
 
 Training the functional baseline for 10,000 rather than 5,000 steps lowered its selected normalized logit loss in 1,482 of 2,000 paired seed/task/rank conditions and increased mean accuracy by 0.00339. It did not change the task-averaged $K_{95}$ (20.2) or $K_{99}$ (25.0), indicating that the longer optimization modestly improves fit without changing the overall behavioral-rank conclusion.
 
@@ -167,7 +186,7 @@ Matching the task code does not rescue a query-side Gram computed from the wrong
 
 ## Scope of the conclusion
 
-These experiments demonstrate behavioral sufficiency of activity-selected low-rank subspaces in a controlled synthetic attention model. They do not establish unique parameter recovery, causal necessity of individual Gram eigenvectors, global optimality of the trained low-rank baseline, or immediate generalization to natural-language transformers. Query-input and query-output are algebraically related through $G_{M^\top q}=M^\top G_qM$, while key-input and key-output are related through $G_{Mx}=MG_xM^\top$. The four curves should therefore be interpreted as paired views of query- and key-conditioned structure, not as four independent discoveries.
+These experiments demonstrate behavioral sufficiency of activity-selected low-rank subspaces in a controlled synthetic attention model. They do not establish unique parameter recovery, causal necessity of individual Gram eigenvectors, global optimality of the trained low-rank baseline, or immediate generalization to natural-language transformers. The synthetic inputs occupy deliberately restricted subspaces, and the support-projected control shows that this fact explains much of the original advantage over raw SVD. Query-input and query-output are algebraically related through $G_{M^\top q}=M^\top G_qM$, while key-input and key-output are related through $G_{Mx}=MG_xM^\top$. The four curves should therefore be interpreted as paired views of query- and key-conditioned structure, not as four independent discoveries.
 
 Additional documentation is available in [RESULTS.md](docs/RESULTS.md), [TASKS.md](docs/TASKS.md), [METHODS.md](docs/METHODS.md), and [CODE_MAP.md](docs/CODE_MAP.md).
 
@@ -220,6 +239,7 @@ The pipeline is resumable and can also be run stage by stage:
 python scripts/run_experiment.py --stage train --workers 4
 python scripts/run_experiment.py --stage reconstruct --workers 4
 python scripts/run_experiment.py --stage low-rank --workers 4
+python scripts/run_experiment.py --stage support-svd --workers 4
 python scripts/run_experiment.py --stage controls --workers 4
 python scripts/run_experiment.py --stage finalize --workers 4
 ```

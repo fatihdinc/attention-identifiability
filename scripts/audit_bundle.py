@@ -17,6 +17,7 @@ from identifiability_llm.paths import DATA_ROOT  # noqa: E402
 
 RUN_ID = "ten_task_effective_score_20seeds_v1"
 EXTENSION = "trained_low_rank_effective_score_20seeds_v1_steps5000_10000"
+SUPPORT_EXTENSION = "support_projected_svd_v1"
 
 
 def digest(path: Path) -> str:
@@ -41,6 +42,9 @@ def main() -> None:
     base_results = DATA_ROOT / "results" / RUN_ID / "confirmatory"
     extension_artifacts = DATA_ROOT / "artifacts" / RUN_ID / "extensions" / EXTENSION
     extension_results = DATA_ROOT / "results" / RUN_ID / "extensions" / EXTENSION
+    support_results = (
+        DATA_ROOT / "results" / RUN_ID / "extensions" / SUPPORT_EXTENSION
+    )
     required = [
         ROOT / "protocols/teacher_and_gram_protocol.json",
         ROOT / "protocols/trained_low_rank_protocol.json",
@@ -51,6 +55,9 @@ def main() -> None:
         extension_results / "tables/trained_reconstruction_results.csv",
         extension_results / "tables/analytic_and_trained_reconstruction_results.csv",
         extension_results / "tables/aggregate_audit.json",
+        support_results / "tables/support_projected_svd_results.csv",
+        support_results / "tables/figure_reconstruction_results.csv",
+        support_results / "tables/aggregate_audit.json",
     ]
     required.extend(base_artifacts / "checkpoints" / f"seed_{seed}.pt" for seed in seeds)
     required.extend(base_results / "training" / f"seed_{seed}.json" for seed in seeds)
@@ -59,6 +66,12 @@ def main() -> None:
         base_results / "parts" / f"seed_{seed}" / f"{task}.csv"
         for seed in seeds
         for task in tasks
+    )
+    required.extend(
+        support_results / "parts" / f"seed_{seed}.csv" for seed in seeds
+    )
+    required.extend(
+        support_results / "audits" / f"seed_{seed}.json" for seed in seeds
     )
     required.extend(
         extension_artifacts
@@ -73,7 +86,8 @@ def main() -> None:
 
     analytic_path = base_results / "tables/reconstruction_results.csv"
     trained_path = extension_results / "tables/trained_reconstruction_results.csv"
-    combined_path = extension_results / "tables/analytic_and_trained_reconstruction_results.csv"
+    combined_path = support_results / "tables/figure_reconstruction_results.csv"
+    support_path = support_results / "tables/support_projected_svd_results.csv"
     analytic = (
         pd.read_csv(analytic_path, low_memory=False)
         if analytic_path.exists()
@@ -89,16 +103,25 @@ def main() -> None:
         if combined_path.exists()
         else pd.DataFrame()
     )
+    support = (
+        pd.read_csv(support_path, low_memory=False)
+        if support_path.exists()
+        else pd.DataFrame()
+    )
     expected_analytic = len(seeds) * len(tasks) * len(methods) * len(ranks)
     expected_trained = len(seeds) * len(tasks) * 2 * 12
+    expected_support = len(seeds) * len(tasks) * len(ranks)
+    expected_combined = expected_analytic + expected_trained + expected_support
     checks = {
         "no_required_files_missing": not missing,
         "twenty_seeds": len(seeds) == 20 and len(set(seeds)) == 20,
         "analytic_row_count": len(analytic) == expected_analytic,
         "trained_row_count": len(trained) == expected_trained,
-        "combined_row_count": len(combined) == expected_analytic + expected_trained,
+        "combined_row_count": len(combined) == expected_combined,
+        "support_row_count": len(support) == expected_support,
         "analytic_seed_count": not analytic.empty and analytic["seed"].nunique() == 20,
         "trained_seed_count": not trained.empty and trained["seed"].nunique() == 20,
+        "support_seed_count": not support.empty and support["seed"].nunique() == 20,
         "analytic_rank_grid": not analytic.empty
         and sorted(analytic["rank"].astype(int).unique().tolist()) == ranks,
         "trained_rank_grid": not trained.empty
@@ -108,6 +131,15 @@ def main() -> None:
         and bool(analytic["rank_bound_satisfied"].all()),
         "all_trained_rank_bounds": not trained.empty
         and bool(trained["rank_bound_satisfied"].all()),
+        "all_support_rank_bounds": not support.empty
+        and bool(support["rank_bound_satisfied"].all()),
+        "figure_uses_both_svd_curves": not combined.empty
+        and int((combined["method"] == "support_projected_m_svd").sum())
+        == expected_support
+        and int((combined["method"] == "effective_m_svd").sum())
+        == expected_support,
+        "figure_has_no_duplicate_conditions": not combined.empty
+        and not combined.duplicated(["seed", "task", "method", "rank"]).any(),
         "analytic_audit_pass": (base_results / "tables/correctness_audit.json").exists()
         and json.loads(
             (base_results / "tables/correctness_audit.json").read_text(encoding="utf-8")
@@ -115,6 +147,12 @@ def main() -> None:
         "trained_audit_pass": (extension_results / "tables/aggregate_audit.json").exists()
         and json.loads(
             (extension_results / "tables/aggregate_audit.json").read_text(encoding="utf-8")
+        )["passed"],
+        "support_audit_pass": (support_results / "tables/aggregate_audit.json").exists()
+        and json.loads(
+            (support_results / "tables/aggregate_audit.json").read_text(
+                encoding="utf-8"
+            )
         )["passed"],
         "no_symlinks": not any(path.is_symlink() for path in ROOT.rglob("*"))
         and not any(path.is_symlink() for path in DATA_ROOT.rglob("*")),
@@ -132,6 +170,8 @@ def main() -> None:
             "trained_rows": len(trained),
             "expected_trained_rows": expected_trained,
             "combined_rows": len(combined),
+            "expected_combined_rows": expected_combined,
+            "support_rows": len(support),
         },
     }
     audit_path = DATA_ROOT / "reports/bundle_audit.json"

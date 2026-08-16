@@ -144,12 +144,22 @@ def validate() -> None:
     run_checked(
         [
             sys.executable,
+            "scripts/run_support_projected_svd.py",
+            "--config",
+            str(EXPERIMENT_CONFIG),
+            "--validate-only",
+        ]
+    )
+    run_checked(
+        [
+            sys.executable,
             "-m",
             "unittest",
             "tests.test_ten_task_attention",
             "tests.test_ten_task_analysis",
             "tests.test_ten_task_effective_score",
             "tests.test_ten_task_distillation",
+            "tests.test_support_projected_svd",
         ]
     )
     print(json.dumps({"event": "self_contained_validation_complete"}))
@@ -256,32 +266,55 @@ def controls(workers: int) -> None:
     )
 
 
+def support_svd(seeds: list[int], workers: int) -> None:
+    run_seed_stage(
+        "support_svd",
+        [
+            sys.executable,
+            "scripts/run_support_projected_svd.py",
+            "--config",
+            str(EXPERIMENT_CONFIG),
+        ],
+        seeds,
+        workers,
+    )
+    run_checked(
+        [
+            sys.executable,
+            "scripts/run_support_projected_svd.py",
+            "--config",
+            str(EXPERIMENT_CONFIG),
+            "--summarize",
+            "--replace-derived",
+        ]
+    )
+
+
 def finalize() -> None:
     table = (
         DATA_ROOT
         / "results/ten_task_effective_score_20seeds_v1/extensions"
-        / "trained_low_rank_effective_score_20seeds_v1_steps5000_10000/tables"
-        / "analytic_and_trained_reconstruction_results.csv"
+        / "support_projected_svd_v1/tables/figure_reconstruction_results.csv"
     )
     figure_root = ROOT / "figures/main"
     full_png = figure_root / "full_range_20seeds.png"
-    if not full_png.exists():
-        run_checked(
-            [
-                sys.executable,
-                "scripts/plot_main_results.py",
-                "--table",
-                str(table),
-                "--full-png",
-                str(full_png),
-                "--zoom-png",
-                str(figure_root / "zoom_K0_50_20seeds.png"),
-                "--full-page-pdf",
-                str(figure_root / "full_range_20seeds.pdf"),
-                "--zoom-page-pdf",
-                str(figure_root / "zoom_K0_50_20seeds.pdf"),
-            ]
-        )
+    run_checked(
+        [
+            sys.executable,
+            "scripts/plot_support_projected_results.py",
+            "--table",
+            str(table),
+            "--full-png",
+            str(full_png),
+            "--zoom-png",
+            str(figure_root / "zoom_K0_50_20seeds.png"),
+            "--full-page-pdf",
+            str(figure_root / "full_range_20seeds.pdf"),
+            "--zoom-page-pdf",
+            str(figure_root / "zoom_K0_50_20seeds.pdf"),
+            "--overwrite",
+        ]
+    )
     run_checked([sys.executable, "scripts/audit_bundle.py"])
 
 
@@ -294,6 +327,7 @@ def main() -> None:
             "train",
             "reconstruct",
             "low-rank",
+            "support-svd",
             "controls",
             "finalize",
             "all",
@@ -316,6 +350,8 @@ def main() -> None:
         reconstruct(seeds, arguments.workers)
     if arguments.stage in {"low-rank", "all"}:
         low_rank(seeds, arguments.workers)
+    if arguments.stage in {"support-svd", "all"}:
+        support_svd(seeds, arguments.workers)
     if arguments.stage in {"controls", "all"}:
         controls(arguments.workers)
     if arguments.stage in {"finalize", "all"}:
