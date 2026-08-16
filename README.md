@@ -1,5 +1,13 @@
 # Connecting Structure to Function in an Attention Layer Trained on Multiple Tasks
 
+## Project note and acknowledgements
+
+This is an exploratory—and intentionally fun—project with two complementary aims. First, I wanted to evaluate Codex as a research agent across a complete scientific workflow: formulating the experiment, implementing it, designing controls, checking reproducibility, and presenting the results. I will discuss what I learned from that process in a separate blog post.
+
+Second, the underlying scientific question—how the structure of a high-dimensional network gives rise to its function—has long been central to my research. My PhD work examined this problem in biological neural networks, culminating in our [geometric and dynamical theory of latent computations](https://www.biorxiv.org/content/10.64898/2026.07.10.737763v1). I am now exploring related ideas in the context of LLM interpretability.
+
+I thank OpenAI for providing access to Codex and enabling this experiment.
+
 ## Motivation
 
 A weight matrix can be low rank without revealing which of its directions actually support a model's behavior. Truncated singular-value decomposition (SVD), for example, preserves directions with high parameter-space energy but does not use the input distribution and is not task specific. Conversely, a low-rank matrix trained to reproduce a network's outputs is function aware, but it does not explain whether the relevant directions can be read directly from the network's activity.
@@ -8,18 +16,20 @@ This repository tests a concrete bridge between these views. We train a controll
 
 ## Table of contents
 
-1. [Experimental setup](#experimental-setup)
+1. [Project note and acknowledgements](#project-note-and-acknowledgements)
+2. [Motivation](#motivation)
+3. [Experimental setup](#experimental-setup)
    - [Task suite](#task-suite)
    - [Architecture and training](#architecture-and-training)
-2. [Identifiability methods](#identifiability-methods)
+4. [Identifiability methods](#identifiability-methods)
    - [The factorization-invariant object](#the-factorization-invariant-object)
    - [Four Gram reconstructions](#four-gram-reconstructions)
    - [Baselines and evaluation](#baselines-and-evaluation)
-3. [Results](#results)
+5. [Results](#results)
    - [Primary reconstruction experiment](#primary-reconstruction-experiment)
    - [Task-transfer control](#task-transfer-control)
-4. [Scope of the conclusion](#scope-of-the-conclusion)
-5. [Reproducibility](#reproducibility)
+6. [Scope of the conclusion](#scope-of-the-conclusion)
+7. [Reproducibility](#reproducibility)
 
 ## Experimental setup
 
@@ -46,23 +56,18 @@ Examples are generated online from deterministic seed namespaces; no external da
 
 ### Architecture and training
 
-The model has one attention head and one attention layer. For query $q\in\mathbb{R}^{128}$ and context vectors $x_i\in\mathbb{R}^{128}$,
+The model has one attention head and one attention layer. For query $q\in\mathbb{R}^{128}$ and context vectors $x_i\in\mathbb{R}^{128}$, the computation is:
 
-$$
-q'=W_Qq,\qquad k_i'=W_Kx_i,\qquad v_i=W_Vx_i,
-$$
+| Stage | Definition |
+|---|---|
+| Query, key, and value projections | $q'=W_Q q,\quad k_i'=W_K x_i,\quad v_i=W_V x_i$ |
+| Attention score for context item $i$ | $s_i=\gamma {q'}^\top k_i'$ |
+| Attention weight for context item $i$ | $\alpha_i=\mathrm{softmax}(s)_i$ |
+| Retrieved value | $r=\sum_{i=1}^{64}\alpha_i v_i$ |
+| Attention output | $o=W_O r$ |
+| Readout layer (class logits) | $\ell=W_R o+b_R$ |
 
-$$
-s_i=\gamma {q'}^\top k_i',\qquad
-\alpha_i=\mathrm{softmax}(s)_i,
-$$
-
-$$
-h=W_O\sum_{i=1}^{64}\alpha_i v_i,\qquad
-\ell=W_Rh+b_R.
-$$
-
-Here $W_Q,W_K,W_V,W_O\in\mathbb{R}^{128\times128}$, $W_R\in\mathbb{R}^{32\times128}$, and the fixed attention scale is $\gamma=0.25$. The class prediction is $\arg\max_j\ell_j$.
+Here $W_Q,W_K,W_V,W_O\in\mathbb{R}^{128\times128}$, $W_R\in\mathbb{R}^{32\times128}$, and the fixed attention scale is $\gamma=0.25$. The vector $o\in\mathbb{R}^{128}$ is the output of the attention layer. The vector $\ell\in\mathbb{R}^{32}$ contains the pre-softmax class logits produced by the readout layer, and the predicted class is $\arg\max_j\ell_j$.
 
 The architecture deliberately excludes residual connections, an MLP, normalization, positional encoding, and any query-label bypass. The Q, K, V, and O maps have no biases; only the final 32-way readout has a bias. This isolation ensures that every context-dependent prediction passes through the single attention operation.
 
