@@ -1,13 +1,5 @@
 # Connecting Structure to Function in an Attention Layer Trained on Multiple Tasks
 
-## Project note and acknowledgements
-
-This is an exploratory—and intentionally fun—project with two complementary aims. First, I wanted to evaluate Codex as a research agent across a complete scientific workflow. I provided the scientific ideas, hypotheses, and experimental scaffolding; Codex worked more like an “overly talented intern,” translating that direction into code, running the experiments, implementing controls, auditing reproducibility, and helping organize the results. I will discuss what I learned from that process in a separate blog post.
-
-Second, the underlying scientific question—how the structure of a high-dimensional network gives rise to its function—has long been central to my research. My PhD work examined this problem in biological neural networks, culminating in our [geometric and dynamical theory of latent computations](https://www.biorxiv.org/content/10.64898/2026.07.10.737763v1). I am now exploring related ideas in the context of LLM interpretability.
-
-I thank OpenAI for providing access to Codex and enabling this experiment.
-
 ## Motivation
 
 A weight matrix can be low rank without revealing which of its directions actually support a model's behavior. Truncated singular-value decomposition (SVD), for example, preserves directions with high parameter-space energy but does not use the input distribution and is not task specific. Conversely, a low-rank matrix trained to reproduce a network's outputs is function aware, but it does not explain whether the relevant directions can be read directly from the network's activity.
@@ -16,20 +8,20 @@ This repository tests a concrete bridge between these views. We train a controll
 
 ## Table of contents
 
-1. [Project note and acknowledgements](#project-note-and-acknowledgements)
-2. [Motivation](#motivation)
-3. [Experimental setup](#experimental-setup)
+1. [Motivation](#motivation)
+2. [Experimental setup](#experimental-setup)
    - [Task suite](#task-suite)
    - [Architecture and training](#architecture-and-training)
-4. [Identifiability methods](#identifiability-methods)
+3. [Identifiability methods](#identifiability-methods)
    - [The factorization-invariant object](#the-factorization-invariant-object)
    - [Four Gram reconstructions](#four-gram-reconstructions)
    - [Baselines and evaluation](#baselines-and-evaluation)
-5. [Results](#results)
+4. [Results](#results)
    - [Primary reconstruction experiment](#primary-reconstruction-experiment)
    - [Task-transfer control](#task-transfer-control)
-6. [Scope of the conclusion](#scope-of-the-conclusion)
-7. [Reproducibility](#reproducibility)
+5. [Scope of the conclusion](#scope-of-the-conclusion)
+6. [Reproducibility](#reproducibility)
+7. [Project note and acknowledgements](#project-note-and-acknowledgements)
 
 ## Experimental setup
 
@@ -240,3 +232,11 @@ python scripts/run_experiment.py --stage all --workers 4
 ```
 
 The complete stage contract, output tree, expected row counts, and audit conditions are in [REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md).
+
+## Project note and acknowledgements
+
+This is an exploratory—and intentionally fun—project with two complementary aims. First, I wanted to evaluate Codex as a research agent across a complete scientific workflow. I provided the scientific ideas, hypotheses, and experimental scaffolding; Codex worked more like an “overly talented intern,” translating that direction into code, running the experiments, implementing controls, auditing reproducibility, and helping organize the results. I will discuss what I learned from that process in a separate blog post.
+
+Second, the underlying scientific question—how the structure of a high-dimensional network gives rise to its function—has long been central to my research. My PhD work examined this problem in biological neural networks, culminating in our [geometric and dynamical theory of latent computations](https://www.biorxiv.org/content/10.64898/2026.07.10.737763v1). I am now exploring related ideas in the context of LLM interpretability.
+
+I thank OpenAI for providing access to Codex and enabling this experiment.
