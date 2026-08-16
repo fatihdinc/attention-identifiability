@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this experiment, please cite this repository."
+title: "Attention Identifiability: Task-Aware Low-Rank Reconstruction"
+type: software
+authors:
+  - family-names: "Dinc"
+    given-names: "Fatih"
+version: 1.0.0
+date-released: 2026-08-16
+

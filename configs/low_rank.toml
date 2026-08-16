@@ -1,0 +1,66 @@
+[extension]
+name = "trained_low_rank_effective_score_distillation"
+version = "trained_low_rank_effective_score_20seeds_v1_steps5000_10000"
+parent_run_id = "ten_task_effective_score_20seeds_v1"
+teacher_configuration = "joint_ten_task"
+post_hoc_extension = false
+effective_score_definition = "gamma * q_proj.weight.T @ k_proj.weight"
+primary_objective = "full_network_teacher_logit_mse"
+uses_ground_truth_labels_for_optimization = false
+initialization = "effective_score_parameter_svd_factors"
+checkpoint_selection = "minimum_full_calibration_normalized_logit_mse_including_step_zero"
+
+[data]
+calibration_namespace = "ten_task_effective_score_20seeds_calibration_v1"
+test_namespace = "ten_task_effective_score_20seeds_test_v1"
+calibration_count = 2048
+test_count = 4096
+generation_batch_size = 512
+rho = 0.9
+three_vote_distractor_rho = 0.4
+
+[optimization]
+optimizer = "adam"
+learning_rate = 0.003
+batch_size = 128
+max_steps = 10000
+evaluate_every = 50
+patience_evaluations = 201
+force_full_horizon = true
+gradient_clip_norm = 10.0
+weight_decay = 0.0
+epsilon = 1.0e-12
+improvement_tolerance = 1.0e-10
+restarts = 1
+device_order = ["cpu"]
+
+[sweep]
+seeds = [
+  4103, 5209, 6311, 7421, 8537,
+  9643, 10753, 11863, 12973, 14081,
+  15187, 16291, 17393, 18499, 19603,
+  20707, 21817, 22921, 24029, 25147,
+]
+tasks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+matrix = "effective_score"
+ranks = [0, 1, 2, 4, 8, 16, 24, 32, 48, 64, 96, 128]
+trainable_ranks = [1, 2, 4, 8, 16, 24, 32, 48, 64, 96]
+horizons = [5000, 10000]
+
+[comparison]
+analytic_table = "data/results/ten_task_effective_score_20seeds_v1/confirmatory/tables/reconstruction_results.csv"
+retain_analytic_methods = [
+  "query_input_gram",
+  "query_output_gram",
+  "key_input_gram",
+  "key_output_gram",
+  "effective_m_svd",
+]
+trained_methods = ["trained_low_rank_5k", "trained_low_rank_10k"]
+dense_display_max = 50
+tail_ranks = [60, 70, 80, 90, 100, 110, 120, 128]
+
+[interpretation]
+same_trajectory_nested_horizons = true
+behavioral_sufficiency_not_parameter_recovery = true
+similar_accuracy_not_identical_subspace = true

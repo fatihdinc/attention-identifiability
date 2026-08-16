@@ -1,0 +1,61 @@
+{
+  "completed_run_semantics_unchanged": true,
+  "config_path": "configs/low_rank.toml",
+  "config_sha256": "71491835c991ead0b6a889b7b90e1e7eb215b9795a210cdaefbad4c17fe127f8",
+  "horizons": [
+    5000,
+    10000
+  ],
+  "ranks": [
+    0,
+    1,
+    2,
+    4,
+    8,
+    16,
+    24,
+    32,
+    48,
+    64,
+    96,
+    128
+  ],
+  "seeds": [
+    4103,
+    5209,
+    6311,
+    7421,
+    8537,
+    9643,
+    10753,
+    11863,
+    12973,
+    14081,
+    15187,
+    16291,
+    17393,
+    18499,
+    19603,
+    20707,
+    21817,
+    22921,
+    24029,
+    25147
+  ],
+  "source_files": {
+    "scripts/plot_main_results.py": "c469563f9eee07eded109ac9a466fc5e8ece412ce02b158543953d5610a4ac5a",
+    "scripts/summarize_low_rank.py": "cfa4d2257bc24d64b946a2414afca56734e29b912db556a604ecf17d308cb477",
+    "scripts/train_low_rank.py": "771d5b15f3625f25a5a6e8ed956a2c94e9e5d460d08cf2381970e6905f6ee205",
+    "src/identifiability_llm/paths.py": "dc1c299c47b00bdf0fad5596ede3dea396a83ffdc5e016a109d62674b6d97189",
+    "src/identifiability_llm/ten_task_analysis.py": "749a10b32f288bf818d1e694c151b431cafad1fce02b00ccb861349601d24b62",
+    "src/identifiability_llm/ten_task_attention.py": "c6b63697204787cc98059661b98970d4b852882288e66c1a39e6b0cf1766dc97",
+    "src/identifiability_llm/ten_task_distillation.py": "a1268578c8aabc9b653ef1e1cab2f53f7acf8afdfed1e3d07edfef3c04527d6d",
+    "src/identifiability_llm/ten_task_effective_score.py": "a20abcfb42ee16ee3726fdc35a338b79e1c87d4e006188cd8f314d8ed00a14b0",
+    "tests/test_ten_task_distillation.py": "85fa21fa2ce1aa8f03d43629cf1d45394b73c2a09aa9d8cd2e173e6be0f42abb",
+    "tests/test_ten_task_effective_score.py": "ab7376694ef7bb7644568f72e66f180efa16fded004fce7a4b701248963a9b3e"
+  },
+  "status": "fresh_20_seed_low_rank_protocol",
+  "teacher_checkpoints": {},
+  "terminology_only_migration": true,
+  "workers": 4
+}
