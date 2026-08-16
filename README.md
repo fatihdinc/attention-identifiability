@@ -54,7 +54,7 @@ $$
 
 $$
 s_i=\gamma {q'}^\top k_i',\qquad
-\alpha_i=\operatorname{softmax}(s)_i,
+\alpha_i=\mathrm{softmax}(s)_i,
 $$
 
 $$
@@ -99,7 +99,7 @@ G_{M^\top q}=M^\top G_qM,
 G_{Mx}=MG_xM^\top.
 $$
 
-For a positive-semidefinite matrix $G$, let $P_{G,K}$ be the orthogonal projector onto its leading $K$ eigenvectors. The four rank-at-most-$K$ reconstructions are:
+For a positive-semidefinite matrix $G$, let $P_{G,K}$ be the orthogonal projector onto its leading $K$ eigenvectors. The four reconstructions, each of rank at most $K$, are:
 
 | Method | Activity whose Gram is used | Gram matrix | Reconstructed effective matrix |
 |---|---|---|---|
@@ -108,7 +108,7 @@ For a positive-semidefinite matrix $G$, let $P_{G,K}$ be the orthogonal projecto
 | **Key-input** | Context/key input before $M$ | $G_x=\mathbb{E}[xx^\top]$ | $\widehat M_K=MP_{G_x,K}$ |
 | **Key-output** | Context/key input propagated through $M$ | $G_{Mx}=MG_xM^\top$ | $\widehat M_K=P_{G_{Mx},K}M$ |
 
-Every reconstruction still uses the trained $M$ itself; the Gram matrix determines which rank-$K$ projector is applied to it. The experiment therefore tests activation-aware subspace selection and behavioral sufficiency, not recovery of $M$ from a Gram matrix alone.
+Every reconstruction still uses the trained $M$ itself; the Gram matrix determines which rank $K$ projector is applied to it. The experiment therefore tests activation-aware subspace selection and behavioral sufficiency, not recovery of $M$ from a Gram matrix alone.
 
 “Output” in these names means the output of one argument under the bilinear map $M$ or $M^\top$; it does **not** mean the projected transformer features $W_Qq$ or $W_Kx$. Query-input and key-output project $M$ from the left, whereas query-output and key-input project it from the right. At $K=0$ every reconstruction is zero; at $K=128$ every complete projector is the identity and all four reconstructions equal $M$.
 
@@ -118,11 +118,11 @@ The analytic rank grid is dense from $K=0$ through $50$, followed by $K\in\{60,7
 
 We compare the four Gram methods with three references:
 
-1. **Effective-$M$ SVD.** If $M=U\Sigma V^\top$, the rank-$K$ reconstruction is $U_{:K}\Sigma_{:K}V_{:K}^\top$. This is the optimal rank-$K$ approximation to $M$ in Frobenius norm, but it is task agnostic.
+1. **SVD of $M$.** If $M=U\Sigma V^\top$, the rank $K$ reconstruction is $U_{:K}\Sigma_{:K}V_{:K}^\top$. This is the optimal rank $K$ approximation to $M$ in Frobenius norm, but it is task agnostic.
 2. **Cumulative SVD power.** The black curve reports $C_M(K)=\sum_{i\leq K}\sigma_i^2/\sum_i\sigma_i^2$. It is a spectral diagnostic, not a reconstruction method or a behavioral metric.
-3. **Trained functional low rank.** For each seed, task, and trainable rank, a factorized matrix $A_KB_K$ replaces $M$ while the teacher's value, output, and readout paths remain frozen. Its factors are initialized from the rank-$K$ SVD of $M$ and optimized along one 10,000-step trajectory to match the frozen teacher's class logits on calibration inputs; ground-truth labels are not used. The 5k and 10k results select the checkpoint with the lowest normalized teacher-logit MSE observed up to the corresponding horizon, including step zero. Rank 0 and rank 128 are boundary controls rather than optimized conditions. This is a trained functional reference, not a certificate of the globally optimal rank-$K$ solution.
+3. **Trained functional low rank.** For each seed, task, and trainable rank, a factorized matrix $A_KB_K$ replaces $M$ while the teacher's value, output, and readout paths remain frozen. Its factors are initialized from the rank $K$ SVD of $M$ and optimized along one 10,000-step trajectory to match the frozen teacher's class logits on calibration inputs; ground-truth labels are not used. The 5k and 10k results select the checkpoint with the lowest normalized teacher-logit MSE observed up to the corresponding horizon, including step zero. Rank 0 and rank 128 are boundary controls rather than optimized conditions. This is a trained functional reference, not a certificate of the globally optimal rank $K$ solution.
 
-Every reconstructed matrix is inserted into the exact direct-$M$ forward pass while $W_V$, $W_O$, and the readout remain fixed. The primary outcome is classification accuracy on 4,096 untouched test examples per task and seed. Secondary recorded metrics include accuracy retention, attention KL divergence, centered score MSE, relative matrix error, and numerical rank. See [METHODS.md](docs/METHODS.md) for the full derivation.
+Every reconstructed matrix is inserted into the exact direct $M$ forward pass while $W_V$, $W_O$, and the readout remain fixed. The primary outcome is classification accuracy on 4,096 untouched test examples per task and seed. Secondary recorded metrics include accuracy retention, attention KL divergence, centered score MSE, relative matrix error, and numerical rank. See [METHODS.md](docs/METHODS.md) for the full derivation.
 
 ## Results
 
@@ -130,7 +130,7 @@ Every reconstructed matrix is inserted into the exact direct-$M$ forward pass wh
 
 ![Ten-task effective-score reconstruction across the full rank range](figures/main/full_range_20seeds.png)
 
-**Figure 1 — Primary reconstruction benchmark.** Each panel is one task. Colored curves show mean held-out accuracy across 20 independently trained models; shaded regions are $\pm1$ standard deviation across seeds. The gray dashed line is the corresponding full-model accuracy. The black curve uses the right axis and shows cumulative SVD power. Gram and effective-$M$ SVD reconstructions are evaluated at 59 ranks; the trained functional references are reported on the 12-rank grid shown by their markers. ([PDF](figures/main/full_range_20seeds.pdf) · [ranks 0–50 zoom](figures/main/zoom_K0_50_20seeds.png))
+**Figure 1 — Primary reconstruction benchmark.** Each panel is one task. Colored curves show mean held-out accuracy across 20 independently trained models; shaded regions are $\pm1$ standard deviation across seeds. The gray dashed line is the corresponding full-model accuracy. The black curve uses the right axis and shows cumulative SVD power. Gram reconstructions and SVD of $M$ are evaluated at 59 ranks; the trained functional references are reported on the 12-rank grid shown by their markers. ([PDF](figures/main/full_range_20seeds.pdf) · [ranks 0–50 zoom](figures/main/zoom_K0_50_20seeds.png))
 
 The central observation is task dependence: directions chosen from task-conditioned activity can preserve behavior at ranks substantially below the ambient dimension, and their functional efficiency can differ sharply from the ordering supplied by the global SVD of $M$. The comparison with the trained low-rank curves shows how closely an analytic Gram construction approaches a matrix explicitly optimized for the same frozen teacher behavior. No single Gram construction dominates every task, so the figure should be read task by task rather than as a universal ranking of methods.
 
@@ -141,11 +141,11 @@ Define $K_{95}$ for each task and method as the smallest reported rank at which 
 | Query-output Gram | 18.9 |
 | Trained functional low rank (5k or 10k) | 20.2 |
 | Query-input Gram | 20.3 |
-| Effective-$M$ SVD | 37.9 |
+| SVD of $M$ | 37.9 |
 | Key-output Gram | 37.9 |
 | Key-input Gram | 57.7 |
 
-Both query-Gram methods reached $K_{95}$ below effective-$M$ SVD on seven of ten tasks, tied it on the two priority tasks, and required slightly higher rank on category majority vote. Exact comparison with the trained baseline is approximate because its reported rank grid is substantially coarser.
+Both query-Gram methods reached $K_{95}$ below SVD of $M$ on seven of ten tasks, tied it on the two priority tasks, and required slightly higher rank on category majority vote. Exact comparison with the trained baseline is approximate because its reported rank grid is substantially coarser.
 
 Training the functional baseline for 10,000 rather than 5,000 steps lowered its selected normalized logit loss in 1,482 of 2,000 paired seed/task/rank conditions and increased mean accuracy by 0.00339. It did not change the task-averaged $K_{95}$ (20.2) or $K_{99}$ (25.0), indicating that the longer optimization modestly improves fit without changing the overall behavioral-rank conclusion.
 
