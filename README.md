@@ -2,7 +2,7 @@
 
 ## Project note and acknowledgements
 
-This is an exploratory—and intentionally fun—project with two complementary aims. First, I wanted to evaluate Codex as a research agent across a complete scientific workflow: formulating the experiment, implementing it, designing controls, checking reproducibility, and presenting the results. I will discuss what I learned from that process in a separate blog post.
+This is an exploratory—and intentionally fun—project with two complementary aims. First, I wanted to evaluate Codex as a research agent across a complete scientific workflow. I provided the scientific ideas, hypotheses, and experimental scaffolding; Codex worked more like an “overly talented intern,” translating that direction into code, running the experiments, implementing controls, auditing reproducibility, and helping organize the results. I will discuss what I learned from that process in a separate blog post.
 
 Second, the underlying scientific question—how the structure of a high-dimensional network gives rise to its function—has long been central to my research. My PhD work examined this problem in biological neural networks, culminating in our [geometric and dynamical theory of latent computations](https://www.biorxiv.org/content/10.64898/2026.07.10.737763v1). I am now exploring related ideas in the context of LLM interpretability.
 
